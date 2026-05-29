@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { Badge } from "../components/common/Badge.jsx";
 import { Button } from "../components/common/Button.jsx";
 import { PageWrapper } from "../components/layout/PageWrapper.jsx";
+import { getApiBaseUrl } from "../config/api.js";
 import { useLanguages } from "../hooks/useLanguages.js";
 
 const pageContent = {
@@ -83,7 +84,7 @@ const actionTargets = {
 };
 
 function getDefaultBackendUrl() {
-  const apiBase = import.meta.env.VITE_API_BASE_URL || "http://localhost:4100/api";
+  const apiBase = getApiBaseUrl();
   return apiBase.replace(/\/api\/?$/, "");
 }
 

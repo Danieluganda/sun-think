@@ -1,4 +1,6 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:4100/api";
+import { getApiBaseUrl } from "../config/api.js";
+
+const API_BASE_URL = getApiBaseUrl();
 const API_TOKEN = import.meta.env.VITE_API_TOKEN || "";
 
 export async function apiRequest(path, options = {}) {
