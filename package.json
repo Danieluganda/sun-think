@@ -1,0 +1,13 @@
+{
+  "name": "thinkific-sunbird",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/dev.js",
+    "start": "node scripts/dev.js",
+    "test": "npm.cmd --prefix backend test",
+    "build": "npm.cmd --prefix ui run build",
+    "install:all": "npm.cmd --prefix backend install && npm.cmd --prefix ui install"
+  }
+}

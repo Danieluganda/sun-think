@@ -1,0 +1,8 @@
+.env
+node_modules/
+dist/
+logs/*.log
+backend/data/jobs.db
+backend/output/
+backend/logs/
+ui/dist/
