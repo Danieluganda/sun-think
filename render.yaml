@@ -1,0 +1,34 @@
+services:
+  - type: web
+    name: sun-think-api
+    runtime: node
+    rootDir: backend
+    plan: free
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /health
+    autoDeployTrigger: commit
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: SUNBIRD_API_URL
+        value: https://api.sunbird.ai/tasks/translate
+      - key: SUNBIRD_API_KEY
+        sync: false
+      - key: THINKIFIC_TOKEN
+        sync: false
+
+  - type: web
+    name: sun-think
+    runtime: static
+    plan: free
+    buildCommand: npm --prefix ui ci && npm run build
+    staticPublishPath: ui/dist
+    autoDeployTrigger: commit
+    envVars:
+      - key: VITE_API_BASE_URL
+        value: https://sun-think-api.onrender.com/api
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
