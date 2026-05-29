@@ -6,8 +6,8 @@
   "scripts": {
     "dev": "node scripts/dev.js",
     "start": "node scripts/dev.js",
-    "test": "npm.cmd --prefix backend test",
-    "build": "npm.cmd --prefix ui run build",
-    "install:all": "npm.cmd --prefix backend install && npm.cmd --prefix ui install"
+    "test": "npm --prefix backend test",
+    "build": "npm --prefix ui run build",
+    "install:all": "npm --prefix backend install && npm --prefix ui install"
   }
 }
