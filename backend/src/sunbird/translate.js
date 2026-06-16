@@ -1,7 +1,7 @@
 import { chunkCues } from "./chunker.js";
 import { sunbirdTranslateText } from "./client.js";
 
-export async function translateCues(cues, { sourceLanguage = "en", targetLanguage }) {
+export async function translateCues(cues, { sourceLanguage = "eng", targetLanguage }) {
   const translated = [];
 
   for (const chunk of chunkCues(cues)) {

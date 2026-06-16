@@ -48,7 +48,7 @@ export async function processJob(job) {
     // 4. Translate cues via Sunbird AI
     await updateJob(job.id, { progress: 30 });
     const translatedCues = await translateCues(cues, {
-      sourceLanguage: "en",
+      sourceLanguage: "eng",
       targetLanguage: job.targetLanguage
     });
     await updateJob(job.id, { progress: 80 });
