@@ -7,6 +7,7 @@
     apiBaseUrl: window.THINKIFIC_SUNBIRD_API_BASE || `${scriptOrigin}/public`,
     sourceLanguage: window.THINKIFIC_SUNBIRD_SOURCE_LANGUAGE || "eng",
     languages: window.THINKIFIC_SUNBIRD_LANGUAGES || null,
+    trackingEnabled: window.THINKIFIC_SUNBIRD_TRACKING !== false,
     fallbackLanguages: [
       { code: "eng", label: "English" },
       { code: "ach", label: "Acholi" },
@@ -28,6 +29,72 @@
     translating: false,
     open: false
   };
+
+  function getVisitorId() {
+    const key = "thinkific_sunbird_visitor_id";
+    try {
+      const existing = window.localStorage.getItem(key);
+      if (existing) return existing;
+      const created = `snb_${Date.now()}_${Math.random().toString(36).slice(2, 12)}`;
+      window.localStorage.setItem(key, created);
+      return created;
+    } catch {
+      return "";
+    }
+  }
+
+  function getUserEmail() {
+    const meta = document.querySelector('meta[name="user-email"], meta[name="thinkific-user-email"]');
+    if (meta?.content) return meta.content;
+    if (window.currentUser?.email) return window.currentUser.email;
+    if (window.Thinkific?.current_user?.email) return window.Thinkific.current_user.email;
+    if (window.thinkific?.current_user?.email) return window.thinkific.current_user.email;
+    return "";
+  }
+
+  function getFootprint(extra = {}) {
+    return {
+      visitorId: getVisitorId(),
+      userEmail: getUserEmail(),
+      sourceLanguage: config.sourceLanguage,
+      currentLanguage: state.currentLanguage,
+      pageTitle: document.title,
+      pageUrl: window.location.href,
+      referrer: document.referrer,
+      userAgent: navigator.userAgent,
+      viewport: {
+        width: window.innerWidth,
+        height: window.innerHeight
+      },
+      ...extra
+    };
+  }
+
+  function trackWidgetEvent(type, extra = {}) {
+    if (!config.trackingEnabled) return;
+
+    const payload = getFootprint({ type, ...extra });
+
+    if (window.mixpanel?.track) {
+      window.mixpanel.track(`Translation Widget ${type}`, payload);
+    }
+
+    try {
+      const body = JSON.stringify(payload);
+      if (navigator.sendBeacon) {
+        navigator.sendBeacon(`${config.apiBaseUrl}/widget-events`, new Blob([body], { type: "application/json" }));
+      } else {
+        fetch(`${config.apiBaseUrl}/widget-events`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body,
+          keepalive: true
+        }).catch(() => {});
+      }
+    } catch {
+      // Tracking should never block translation.
+    }
+  }
 
   function isVisibleElement(el) {
     if (!el || !document.documentElement.contains(el)) return false;
@@ -117,7 +184,10 @@
 
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
-      throw new Error(body.error || `Translation failed: ${res.status}`);
+      const error = new Error(body.error || `Translation failed: ${res.status}`);
+      error.code = body.code || "";
+      error.status = res.status;
+      throw error;
     }
 
     const payload = await res.json();
@@ -131,9 +201,14 @@
       return;
     }
 
+    const startedAt = Date.now();
     state.translating = true;
     closeMenu();
     setFabState("loading", "Finding text...");
+    trackWidgetEvent("Language Selected", {
+      targetLanguage: code,
+      targetLabel: label
+    });
 
     try {
       const nodes = collectTextNodes();
@@ -155,8 +230,26 @@
       state.currentLanguage = code;
       state.currentLabel = label;
       setFabState("done");
+      trackWidgetEvent("Translation Completed", {
+        targetLanguage: code,
+        targetLabel: label,
+        nodeCount: nodes.length,
+        translatedCount: code === config.sourceLanguage ? 0 : nodes.length,
+        durationMs: Date.now() - startedAt,
+        status: "success"
+      });
     } catch (err) {
-      setFabState("error", err.message);
+      const message = err.code === "quota_exceeded" || err.status === 429
+        ? "Daily translation quota reached"
+        : err.message;
+      setFabState("error", message);
+      trackWidgetEvent("Translation Failed", {
+        targetLanguage: code,
+        targetLabel: label,
+        durationMs: Date.now() - startedAt,
+        status: "failure",
+        error: message
+      });
     } finally {
       state.translating = false;
     }
@@ -227,6 +320,7 @@
   function openMenu() {
     if (!menuEl) return;
     state.open = true;
+    trackWidgetEvent("Menu Opened");
     menuEl.style.display = "block";
     requestAnimationFrame(() => {
       menuEl.style.opacity = "1";

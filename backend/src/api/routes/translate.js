@@ -45,6 +45,13 @@ translateRouter.post("/page", async (req, res, next) => {
 
     return res.json({ translations });
   } catch (error) {
+    if (error.statusCode === 429 || /quota/i.test(error.message)) {
+      return res.status(429).json({
+        error: "Daily translation quota reached. Please try again after the Sunbird quota resets.",
+        code: "quota_exceeded"
+      });
+    }
+
     return next(error);
   }
 });

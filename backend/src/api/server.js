@@ -11,6 +11,7 @@ import { exportRouter } from "./routes/export.js";
 import { languagesRouter } from "./routes/languages.js";
 import { metricsRouter } from "./routes/metrics.js";
 import { translateRouter } from "./routes/translate.js";
+import { widgetEventsRouter } from "./routes/widgetEvents.js";
 import { logger } from "../logger/index.js";
 
 const publicDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../public");
@@ -25,6 +26,7 @@ export function createServer() {
   app.use("/widget", express.static(publicDir));
   app.use("/public/languages", languagesRouter);
   app.use("/public/translate", translateRouter);
+  app.use("/public/widget-events", widgetEventsRouter);
   app.use(express.static(appDir));
 
   app.get("/health", (_req, res) => {

@@ -2,6 +2,8 @@ const counters = new Map();
 const apiStats = new Map();
 const recentCalls = [];
 const maxRecentCalls = 25;
+const recentWidgetEvents = [];
+const maxRecentWidgetEvents = 100;
 
 function createApiStat(name) {
   return {
@@ -47,6 +49,36 @@ export function recordApiCall({ api, ok, durationMs, statusCode = null, error = 
   recentCalls.splice(maxRecentCalls);
 }
 
+export function recordWidgetEvent(event) {
+  const recordedAt = new Date().toISOString();
+  const type = String(event?.type || "unknown").slice(0, 80);
+
+  incrementMetric(`widget.${type}`);
+
+  recentWidgetEvents.unshift({
+    type,
+    recordedAt,
+    visitorId: String(event?.visitorId || "").slice(0, 120),
+    userEmail: String(event?.userEmail || "").slice(0, 180),
+    sourceLanguage: String(event?.sourceLanguage || "").slice(0, 20),
+    targetLanguage: String(event?.targetLanguage || "").slice(0, 20),
+    targetLabel: String(event?.targetLabel || "").slice(0, 80),
+    currentLanguage: String(event?.currentLanguage || "").slice(0, 20),
+    pageTitle: String(event?.pageTitle || "").slice(0, 220),
+    pageUrl: String(event?.pageUrl || "").slice(0, 600),
+    referrer: String(event?.referrer || "").slice(0, 600),
+    nodeCount: Number(event?.nodeCount || 0),
+    translatedCount: Number(event?.translatedCount || 0),
+    durationMs: Number(event?.durationMs || 0),
+    status: String(event?.status || "").slice(0, 40),
+    error: String(event?.error || "").slice(0, 300),
+    userAgent: String(event?.userAgent || "").slice(0, 300),
+    viewport: event?.viewport || null
+  });
+
+  recentWidgetEvents.splice(maxRecentWidgetEvents);
+}
+
 export async function trackApiCall(api, task) {
   const startedAt = Date.now();
 
@@ -75,6 +107,7 @@ export function getMetrics() {
   return {
     counters: Object.fromEntries(counters.entries()),
     apis: Array.from(apiStats.values()).map(({ totalDurationMs, ...stat }) => stat),
-    recentCalls: [...recentCalls]
+    recentCalls: [...recentCalls],
+    recentWidgetEvents: [...recentWidgetEvents]
   };
 }
