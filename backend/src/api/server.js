@@ -14,6 +14,7 @@ import { translateRouter } from "./routes/translate.js";
 import { logger } from "../logger/index.js";
 
 const publicDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../public");
+const appDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../app");
 
 export function createServer() {
   validateConfig();
@@ -24,6 +25,7 @@ export function createServer() {
   app.use("/widget", express.static(publicDir));
   app.use("/public/languages", languagesRouter);
   app.use("/public/translate", translateRouter);
+  app.use(express.static(appDir));
 
   app.get("/health", (_req, res) => {
     res.json({ ok: true, service: "thinkific-sunbird-backend" });
@@ -37,6 +39,10 @@ export function createServer() {
   app.use("/api/languages", languagesRouter);
   app.use("/api/metrics", metricsRouter);
   app.use("/api/translate", translateRouter);
+
+  app.get("*", (_req, res) => {
+    res.sendFile(path.join(appDir, "index.html"));
+  });
 
   app.use((error, _req, res, _next) => {
     logger.error(error.message, { stack: error.stack });
