@@ -15,7 +15,9 @@
       { code: "lgg", label: "Lugbara" },
       { code: "nyn", label: "Runyankole" }
     ],
-    batchSize: 12
+    batchSize: 6,
+    maxNodesPerRun: 90,
+    viewportBuffer: 900
   };
 
   const state = {
@@ -27,15 +29,50 @@
     open: false
   };
 
-  // ── Text node helpers ────────────────────────────────────────────────────────
+  function isVisibleElement(el) {
+    if (!el || !document.documentElement.contains(el)) return false;
+
+    let current = el;
+    while (current && current !== document.body) {
+      const style = window.getComputedStyle(current);
+      if (
+        style.display === "none" ||
+        style.visibility === "hidden" ||
+        style.opacity === "0" ||
+        current.getAttribute("aria-hidden") === "true"
+      ) {
+        return false;
+      }
+      current = current.parentElement;
+    }
+
+    const rects = Array.from(el.getClientRects());
+    if (!rects.length) return false;
+
+    return rects.some((rect) =>
+      rect.width > 0 &&
+      rect.height > 0 &&
+      rect.bottom >= -config.viewportBuffer &&
+      rect.top <= window.innerHeight + config.viewportBuffer
+    );
+  }
+
+  function getTranslatableText(value) {
+    const text = value.replace(/\s+/g, " ").trim();
+    if (text.length < 2) return "";
+    if (text.length > 500) return "";
+    if (/^[\d\s:.,%$/#()\-+]+$/.test(text)) return "";
+    return text;
+  }
 
   function shouldSkipNode(node) {
     const parent = node.parentElement;
     if (!parent) return true;
-    if (!node.nodeValue || !node.nodeValue.trim()) return true;
+    if (!node.nodeValue || !getTranslatableText(node.nodeValue)) return true;
     if (parent.closest("[data-snb]")) return true;
-    if (parent.closest("script,style,noscript,svg,canvas,code,pre,input,textarea,select")) return true;
+    if (parent.closest("script,style,noscript,svg,canvas,code,pre,input,textarea,select,video,audio,iframe")) return true;
     if (parent.isContentEditable) return true;
+    if (!isVisibleElement(parent)) return true;
     return false;
   }
 
@@ -43,6 +80,7 @@
     const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
     const nodes = [];
     let node = walker.nextNode();
+
     while (node) {
       if (!shouldSkipNode(node)) {
         if (!state.originalText.has(node)) state.originalText.set(node, node.nodeValue);
@@ -50,7 +88,8 @@
       }
       node = walker.nextNode();
     }
-    return nodes;
+
+    return nodes.slice(0, config.maxNodesPerRun);
   }
 
   function chunks(items, size) {
@@ -59,7 +98,12 @@
     return out;
   }
 
-  // ── Translation ──────────────────────────────────────────────────────────────
+  function applyTranslatedText(node, translatedText) {
+    const original = state.originalText.get(node) || node.nodeValue;
+    const leading = original.match(/^\s*/)?.[0] || "";
+    const trailing = original.match(/\s*$/)?.[0] || "";
+    node.nodeValue = `${leading}${translatedText || getTranslatableText(original)}${trailing}`;
+  }
 
   async function translateBatch(texts, targetLanguage) {
     const key = `${targetLanguage}:${JSON.stringify(texts)}`;
@@ -89,19 +133,25 @@
 
     state.translating = true;
     closeMenu();
-    setFabState("loading");
+    setFabState("loading", "Finding text...");
 
     try {
       const nodes = collectTextNodes();
       if (code === config.sourceLanguage) {
-        nodes.forEach((n) => { n.nodeValue = state.originalText.get(n) || n.nodeValue; });
+        nodes.forEach((n) => {
+          n.nodeValue = state.originalText.get(n) || n.nodeValue;
+        });
       } else {
+        let completed = 0;
         for (const batch of chunks(nodes, config.batchSize)) {
-          const originals = batch.map((n) => state.originalText.get(n) || n.nodeValue);
+          const originals = batch.map((n) => getTranslatableText(state.originalText.get(n) || n.nodeValue));
           const translations = await translateBatch(originals, code);
-          batch.forEach((n, i) => { n.nodeValue = translations[i] || n.nodeValue; });
+          batch.forEach((n, i) => applyTranslatedText(n, translations[i]));
+          completed += batch.length;
+          setFabState("loading", `Translating ${completed}/${nodes.length}`);
         }
       }
+
       state.currentLanguage = code;
       state.currentLabel = label;
       setFabState("done");
@@ -111,8 +161,6 @@
       state.translating = false;
     }
   }
-
-  // ── Language loader ──────────────────────────────────────────────────────────
 
   async function loadLanguages() {
     if (Array.isArray(config.languages) && config.languages.length) return config.languages;
@@ -130,8 +178,6 @@
     }
   }
 
-  // ── DOM helpers ──────────────────────────────────────────────────────────────
-
   function el(tag, attrs = {}, children = []) {
     const node = document.createElement(tag);
     Object.entries(attrs).forEach(([k, v]) => {
@@ -144,29 +190,31 @@
     return node;
   }
 
-  // ── FAB state ────────────────────────────────────────────────────────────────
-
-  let fabEl, fabIcon, fabLabel, menuEl, tooltipEl;
+  let fabEl;
+  let fabIcon;
+  let fabLabel;
+  let menuEl;
+  let tooltipEl;
 
   const GLOBE_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>`;
   const SPINNER_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" class="snb-spin"/></svg>`;
 
-  function setFabState(state_name, message) {
+  function setFabState(stateName, message) {
     if (!fabEl) return;
-    fabIcon.innerHTML = state_name === "loading" ? SPINNER_SVG : GLOBE_SVG;
-    fabEl.setAttribute("aria-label", state_name === "loading" ? "Translating…" : "Switch language");
+    fabIcon.innerHTML = stateName === "loading" ? SPINNER_SVG : GLOBE_SVG;
+    fabEl.setAttribute("aria-label", stateName === "loading" ? "Translating..." : "Switch language");
 
-    if (state_name === "done") {
+    if (stateName === "done") {
       fabLabel.textContent = state.currentLabel;
       fabEl.dataset.snbActive = "true";
       showTooltip("");
-    } else if (state_name === "error") {
+    } else if (stateName === "error") {
       showTooltip(message || "Translation failed");
       setTimeout(() => showTooltip(""), 3500);
       fabLabel.textContent = state.currentLabel;
     } else {
-      showTooltip("Translating…");
-      fabLabel.textContent = "…";
+      showTooltip(message || "Translating...");
+      fabLabel.textContent = "...";
     }
   }
 
@@ -180,7 +228,10 @@
     if (!menuEl) return;
     state.open = true;
     menuEl.style.display = "block";
-    requestAnimationFrame(() => { menuEl.style.opacity = "1"; menuEl.style.transform = "translateY(0)"; });
+    requestAnimationFrame(() => {
+      menuEl.style.opacity = "1";
+      menuEl.style.transform = "translateY(0)";
+    });
     fabEl.setAttribute("aria-expanded", "true");
   }
 
@@ -189,11 +240,11 @@
     state.open = false;
     menuEl.style.opacity = "0";
     menuEl.style.transform = "translateY(8px)";
-    setTimeout(() => { if (!state.open) menuEl.style.display = "none"; }, 200);
+    setTimeout(() => {
+      if (!state.open) menuEl.style.display = "none";
+    }, 200);
     fabEl.setAttribute("aria-expanded", "false");
   }
-
-  // ── Styles ───────────────────────────────────────────────────────────────────
 
   function injectStyles() {
     const style = document.createElement("style");
@@ -217,7 +268,7 @@
         font-size: 12px;
         font-weight: 600;
         line-height: 1.3;
-        max-width: 200px;
+        max-width: 220px;
         opacity: 0;
         padding: 6px 10px;
         pointer-events: none;
@@ -296,18 +347,14 @@
     document.head.appendChild(style);
   }
 
-  // ── Mount ────────────────────────────────────────────────────────────────────
-
   async function mount() {
     if (document.querySelector("[data-snb='root']")) return;
 
     const languages = await loadLanguages();
     injectStyles();
 
-    // Tooltip
     tooltipEl = el("div", { "data-snb": "tooltip" });
 
-    // Menu items
     menuEl = el("div", { "data-snb": "menu", role: "listbox", "aria-label": "Select language" });
     languages.forEach(({ code, label }) => {
       const item = el("button", {
@@ -325,11 +372,9 @@
       menuEl.appendChild(item);
     });
 
-    // FAB icon + label
     fabIcon = el("span", { "data-snb": "fab-icon", html: GLOBE_SVG });
     fabLabel = el("span", { "data-snb": "fab-label", text: "Language" });
 
-    // FAB button
     fabEl = el("button", {
       "data-snb": "fab",
       type: "button",
@@ -340,12 +385,10 @@
 
     fabEl.addEventListener("click", () => state.open ? closeMenu() : openMenu());
 
-    // Close on outside click
     document.addEventListener("click", (e) => {
       if (!e.target.closest("[data-snb='root']")) closeMenu();
     });
 
-    // Root wrapper
     const root = el("div", { "data-snb": "root" }, [tooltipEl, menuEl, fabEl]);
     document.body.appendChild(root);
   }
