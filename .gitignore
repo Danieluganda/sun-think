@@ -3,6 +3,8 @@ node_modules/
 dist/
 logs/*.log
 backend/data/jobs.db
+backend/data/widget-analytics.json
+backend/data/widget-analytics.json.tmp
 backend/output/
 backend/logs/
 ui/dist/

@@ -26,6 +26,7 @@ export const config = {
     key: process.env.SUNBIRD_API_KEY || process.env.SUNBIRD_KEY || ""
   },
   dbPath: resolveFromRoot(process.env.DB_PATH, "./data/jobs.db"),
+  widgetAnalyticsPath: resolveFromRoot(process.env.WIDGET_ANALYTICS_PATH, "./data/widget-analytics.json"),
   outputDir: resolveFromRoot(process.env.OUTPUT_DIR, "./output"),
   logDir: resolveFromRoot(process.env.LOG_DIR, "./logs")
 };

@@ -4,7 +4,15 @@ import { getMetrics } from "../api/metrics.js";
 const emptyMetrics = {
   counters: {},
   apis: [],
-  recentCalls: []
+  recentCalls: [],
+  recentWidgetEvents: [],
+  widgetSummary: {
+    totalEvents: 0,
+    uniqueVisitors: 0,
+    identifiedUsers: 0,
+    languageSelections: 0,
+    completedTranslations: 0
+  }
 };
 
 export function useMetrics({ pollMs = 0 } = {}) {

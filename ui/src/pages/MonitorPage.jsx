@@ -3,6 +3,9 @@ import {
   AlertTriangle,
   CheckCircle2,
   Clock,
+  Languages,
+  MousePointerClick,
+  Users,
   ExternalLink,
   KeyRound,
   Radio,
@@ -221,6 +224,43 @@ function QuickLinks({ onNavigate }) {
   );
 }
 
+function getActorLabel(event) {
+  if (event.userEmail) return event.userEmail;
+  if (event.visitorId) return event.visitorId;
+  return "Anonymous visitor";
+}
+
+function WidgetActivity({ events }) {
+  const recentEvents = events.slice(0, 6);
+
+  return (
+    <section className="dashboard-card table-wrap recent-events-card">
+      <div className="panel-heading">
+        <div>
+          <h2>Translation Widget Users</h2>
+          <p>Recent language button activity</p>
+        </div>
+      </div>
+      <div className="recent-event-list">
+        {recentEvents.map((event) => (
+          <article className="recent-event-item" key={`${event.type}-${event.recordedAt}-${event.visitorId}`}>
+            <div>
+              <strong>{getActorLabel(event)}</strong>
+              <small>{event.pageTitle || event.pageUrl || "Thinkific page"}</small>
+            </div>
+            <span>{formatDate(event.recordedAt)}</span>
+            <Badge tone={event.status === "failure" ? "danger" : "success"}>{event.type}</Badge>
+            <span>{event.targetLabel || event.targetLanguage || event.currentLanguage || "-"}</span>
+          </article>
+        ))}
+      </div>
+      {!recentEvents.length ? (
+        <EmptyState title="No widget users yet" body="Open the language button on Thinkific to start collecting user activity." />
+      ) : null}
+    </section>
+  );
+}
+
 function TranslationTest() {
   const { sourceLanguage, targetLanguages, loading: languagesLoading, error: languagesError } = useLanguages();
   const [text, setText] = useState("Welcome to the course.");
@@ -303,6 +343,7 @@ export function MonitorPage({ onNavigate }) {
     ? metrics.apis.reduce((sum, api) => sum + api.averageDurationMs, 0) / metrics.apis.length
     : 0;
   const successRate = totalCalls ? Math.round((success / totalCalls) * 100) : 0;
+  const widgetSummary = metrics.widgetSummary || {};
 
   return (
     <PageWrapper>
@@ -317,6 +358,9 @@ export function MonitorPage({ onNavigate }) {
         <StatCard icon={Zap} label="Average Response" value={formatMs(avgDuration)} hint="Current process memory" tone="purple" />
         <StatCard icon={AlertTriangle} label="Failed Requests" value={failures} hint="Requests needing attention" tone="amber" />
         <StatCard icon={Radio} label="Active APIs" value={activeApis} hint={`${metrics.apis.length} monitored`} tone="cyan" />
+        <StatCard icon={Users} label="Widget Visitors" value={widgetSummary.uniqueVisitors || 0} hint={`${widgetSummary.identifiedUsers || 0} identified`} tone="green" />
+        <StatCard icon={MousePointerClick} label="Widget Actions" value={widgetSummary.totalEvents || 0} hint="Language button events" tone="blue" />
+        <StatCard icon={Languages} label="Language Picks" value={widgetSummary.languageSelections || 0} hint={`${widgetSummary.completedTranslations || 0} completed`} tone="purple" />
       </div>
 
       {error ? <p className="notice">Metrics unavailable: {error}</p> : null}
@@ -352,6 +396,7 @@ export function MonitorPage({ onNavigate }) {
               <EmptyState title="No API calls recorded yet" body="Run a course fetch or translation job to start collecting metrics." />
             ) : null}
           </section>
+          <WidgetActivity events={metrics.recentWidgetEvents || []} />
           <TranslationTest />
           <UsageOverview totalCalls={totalCalls} success={success} failures={failures} onNavigate={onNavigate} />
           <QuickLinks onNavigate={onNavigate} />
