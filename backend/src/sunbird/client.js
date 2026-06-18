@@ -46,6 +46,8 @@ export async function sunbirdTranslateText({ text, sourceLanguage, targetLanguag
       }
 
       return { value: translatedText, statusCode: response.status };
+    }, {
+      shouldRetry: (error) => error.statusCode !== 429
     })
   );
 }

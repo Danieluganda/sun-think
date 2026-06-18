@@ -5,6 +5,8 @@ export const COURSES_QUERY = `
         nodes {
           id
           name
+          slug
+          description
         }
         pageInfo {
           hasNextPage
@@ -37,6 +39,7 @@ export const LESSONS_QUERY = `
               nodes {
                 id
                 lessonType
+                title
               }
             }
           }

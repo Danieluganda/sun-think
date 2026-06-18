@@ -16,6 +16,8 @@ The live widget is served from Azure and embedded in Thinkific as a green floati
 - Serves the Thinkific language switcher widget.
 - Translates visible Thinkific course text through the Sunbird Translation API.
 - Caches translated course text so repeated text does not call Sunbird again.
+- Runs uncached translation requests with controlled backend concurrency.
+- Can fall back to Google Cloud Translation for mapped languages when Sunbird quota is exhausted.
 - Tracks widget usage events such as menu opens, language selections, completed translations, and failed translations.
 - Stores widget visitor/user analytics in a JSON file.
 - Provides an admin UI and `/api/metrics` endpoint for monitoring API health and widget activity.
@@ -64,8 +66,12 @@ OUTPUT_DIR=./output
 LOG_DIR=./logs
 WIDGET_ANALYTICS_PATH=./data/widget-analytics.json
 WIDGET_ANALYTICS_MAX_EVENTS=5000
+WIDGET_ANALYTICS_FLUSH_MS=1000
 TRANSLATION_CACHE_PATH=./data/translation-cache.json
 TRANSLATION_CACHE_MAX_ENTRIES=20000
+TRANSLATION_CONCURRENCY=3
+GOOGLE_TRANSLATE_API_KEY=...
+GOOGLE_TRANSLATE_API_URL=https://translation.googleapis.com/language/translate/v2
 ```
 
 In Azure, persistent storage paths are set to:
@@ -128,6 +134,25 @@ In Azure, it is stored at:
 /home/data/translation-cache.json
 ```
 
+## Pre-Translation
+
+Known Thinkific course text can be pre-translated into the cache before learners use the widget.
+
+From `backend/`:
+
+```bash
+npm run pretranslate:widget -- --slug 10x-foundation-course --languages lug,ach --concurrency 3
+```
+
+Options:
+
+- `--course <courseId>` warms one Thinkific course by ID.
+- `--slug <courseSlug>` warms one Thinkific course by slug.
+- `--languages lug,ach,teo,lgg,nyn` limits target languages.
+- `--concurrency 3` controls how many uncached translation calls run at once.
+
+The command uses the same backend translation cache as the live widget.
+
 ## Testing
 
 Useful checks:
@@ -180,4 +205,12 @@ The Sunbird API key currently has a daily quota. When the quota is exhausted, tr
 429 Daily quota exceeded
 ```
 
-The widget remains live and tracks the failed event, but translation availability depends on Sunbird quota. A production quota increase or fallback provider is recommended.
+The widget remains live and tracks the failed event, but translation availability depends on Sunbird quota.
+
+If `GOOGLE_TRANSLATE_API_KEY` is configured, the backend can fall back to Google Cloud Translation for mapped languages. The current fallback mapping supports:
+
+- `eng` to `ach`
+- `eng` to `lug`
+- `eng` to `swa`
+
+Languages without a safe fallback mapping still depend on Sunbird.

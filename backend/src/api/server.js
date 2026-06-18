@@ -13,6 +13,7 @@ import { metricsRouter } from "./routes/metrics.js";
 import { translateRouter } from "./routes/translate.js";
 import { widgetEventsRouter } from "./routes/widgetEvents.js";
 import { logger } from "../logger/index.js";
+import { flushWidgetAnalytics } from "../logger/metrics.js";
 
 const publicDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../public");
 const appDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../app");
@@ -55,7 +56,17 @@ export function createServer() {
 }
 
 if (process.argv[1] && process.argv[1].endsWith("server.js")) {
-  createServer().listen(config.port, () => {
+  const server = createServer().listen(config.port, () => {
     logger.info(`API listening on http://localhost:${config.port}`);
+  });
+
+  process.once("SIGTERM", () => {
+    flushWidgetAnalytics();
+    server.close(() => process.exit(0));
+  });
+
+  process.once("SIGINT", () => {
+    flushWidgetAnalytics();
+    server.close(() => process.exit(0));
   });
 }

@@ -25,6 +25,10 @@ export const config = {
     apiUrl: (process.env.SUNBIRD_API_URL || "https://api.sunbird.ai/tasks/translate").trim(),
     key: process.env.SUNBIRD_API_KEY || process.env.SUNBIRD_KEY || ""
   },
+  googleTranslate: {
+    apiUrl: (process.env.GOOGLE_TRANSLATE_API_URL || "https://translation.googleapis.com/language/translate/v2").trim(),
+    key: process.env.GOOGLE_TRANSLATE_API_KEY || ""
+  },
   dbPath: resolveFromRoot(process.env.DB_PATH, "./data/jobs.db"),
   widgetAnalyticsPath: resolveFromRoot(process.env.WIDGET_ANALYTICS_PATH, "./data/widget-analytics.json"),
   translationCachePath: resolveFromRoot(process.env.TRANSLATION_CACHE_PATH, "./data/translation-cache.json"),

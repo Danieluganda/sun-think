@@ -10,7 +10,10 @@ const maxRecentCalls = 25;
 const recentWidgetEvents = [];
 const maxRecentWidgetEvents = 100;
 const maxStoredWidgetEvents = Number(process.env.WIDGET_ANALYTICS_MAX_EVENTS || 5000);
+const widgetAnalyticsFlushMs = Number(process.env.WIDGET_ANALYTICS_FLUSH_MS || 1000);
 const widgetAnalytics = loadWidgetAnalytics();
+let widgetAnalyticsSaveTimer = null;
+let widgetAnalyticsDirty = false;
 
 function createEmptyWidgetAnalytics() {
   return {
@@ -58,6 +61,30 @@ function saveWidgetAnalytics() {
   } catch {
     // Analytics should never block learner-facing translation requests.
   }
+}
+
+function scheduleWidgetAnalyticsSave() {
+  widgetAnalyticsDirty = true;
+  if (widgetAnalyticsSaveTimer) return;
+
+  widgetAnalyticsSaveTimer = setTimeout(() => {
+    widgetAnalyticsSaveTimer = null;
+    if (!widgetAnalyticsDirty) return;
+    widgetAnalyticsDirty = false;
+    saveWidgetAnalytics();
+  }, widgetAnalyticsFlushMs);
+
+  widgetAnalyticsSaveTimer.unref?.();
+}
+
+export function flushWidgetAnalytics() {
+  if (widgetAnalyticsSaveTimer) {
+    clearTimeout(widgetAnalyticsSaveTimer);
+    widgetAnalyticsSaveTimer = null;
+  }
+  if (!widgetAnalyticsDirty) return;
+  widgetAnalyticsDirty = false;
+  saveWidgetAnalytics();
 }
 
 function safeNumber(value) {
@@ -203,7 +230,7 @@ export function recordWidgetEvent(event) {
   updateUserStats(widgetEvent);
   widgetAnalytics.events.unshift(widgetEvent);
   widgetAnalytics.events.splice(maxStoredWidgetEvents);
-  saveWidgetAnalytics();
+  scheduleWidgetAnalyticsSave();
 }
 
 export async function trackApiCall(api, task) {
