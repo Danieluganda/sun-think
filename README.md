@@ -17,7 +17,7 @@ The live widget is served from Azure and embedded in Thinkific as a green floati
 - Translates visible Thinkific course text through the Sunbird Translation API.
 - Caches translated course text so repeated text does not call Sunbird again.
 - Runs uncached translation requests with controlled backend concurrency.
-- Can fall back to Google Cloud Translation for mapped languages when Sunbird quota is exhausted.
+- Has optional Google Cloud Translation fallback code, disabled by default.
 - Tracks widget usage events such as menu opens, language selections, completed translations, and failed translations.
 - Stores widget visitor/user analytics in a JSON file.
 - Provides an admin UI and `/api/metrics` endpoint for monitoring API health and widget activity.
@@ -70,6 +70,7 @@ WIDGET_ANALYTICS_FLUSH_MS=1000
 TRANSLATION_CACHE_PATH=./data/translation-cache.json
 TRANSLATION_CACHE_MAX_ENTRIES=20000
 TRANSLATION_CONCURRENCY=3
+GOOGLE_TRANSLATE_ENABLED=false
 GOOGLE_TRANSLATE_API_KEY=...
 GOOGLE_TRANSLATE_API_URL=https://translation.googleapis.com/language/translate/v2
 ```
@@ -207,7 +208,15 @@ The Sunbird API key currently has a daily quota. When the quota is exhausted, tr
 
 The widget remains live and tracks the failed event, but translation availability depends on Sunbird quota.
 
-If `GOOGLE_TRANSLATE_API_KEY` is configured, the backend can fall back to Google Cloud Translation for mapped languages. The current fallback mapping supports:
+Google Cloud Translation fallback is disabled by default to avoid unexpected billing.
+
+It only runs if all of these are true:
+
+- `GOOGLE_TRANSLATE_ENABLED=true`
+- `GOOGLE_TRANSLATE_API_KEY` is configured
+- the language pair has a safe mapping
+
+The current fallback mapping supports:
 
 - `eng` to `ach`
 - `eng` to `lug`

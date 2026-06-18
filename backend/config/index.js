@@ -26,6 +26,7 @@ export const config = {
     key: process.env.SUNBIRD_API_KEY || process.env.SUNBIRD_KEY || ""
   },
   googleTranslate: {
+    enabled: process.env.GOOGLE_TRANSLATE_ENABLED === "true",
     apiUrl: (process.env.GOOGLE_TRANSLATE_API_URL || "https://translation.googleapis.com/language/translate/v2").trim(),
     key: process.env.GOOGLE_TRANSLATE_API_KEY || ""
   },

@@ -10,6 +10,7 @@ const languageMap = {
 
 export function canUseGoogleTranslate({ sourceLanguage, targetLanguage }) {
   return Boolean(
+    config.googleTranslate.enabled &&
     config.googleTranslate.key &&
     languageMap[sourceLanguage] &&
     languageMap[targetLanguage]
