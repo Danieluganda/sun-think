@@ -81,6 +81,8 @@ Some names, brands, and technical terms should remain unchanged. The widget supp
 <script>
   window.THINKIFIC_SUNBIRD_PROTECTED_TERMS = [
     "10X",
+    "The 10X Program",
+    "10X Program",
     "10X Academy",
     "Outbox"
   ];
