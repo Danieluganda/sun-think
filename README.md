@@ -4,6 +4,28 @@ Admin dashboard, backend API, and Thinkific floating translation widget for the 
 
 The live widget is served from Azure and embedded in Thinkific as a green floating **Language** button in the lower-right corner of the course page.
 
+## Current Status
+
+This project is ready to pause after the pilot deployment.
+
+What is complete:
+
+- Thinkific widget is live.
+- Azure backend is deployed and healthy.
+- Sunbird is the active translation provider.
+- Google Cloud Translation fallback is disabled to avoid billing.
+- Translation cache is enabled for repeated course text.
+- Widget analytics are saved to persistent JSON storage.
+- Controlled backend concurrency is enabled for uncached translations.
+- Pre-translation command is available, but should only be run when Sunbird quota is available.
+
+Before full-scale launch, management needs to approve or provide:
+
+- more Sunbird quota/credits or a production Sunbird agreement
+- a decision on which languages to pre-translate first
+- approval for any future scale services, such as Redis, database storage, queueing, or autoscaling
+- load testing before opening to a large audience
+
 ## Live Deployment
 
 - Azure app: `https://mail-verify-hmhah3c7fbbgf9f4.canadacentral-01.azurewebsites.net`
