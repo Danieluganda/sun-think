@@ -73,6 +73,36 @@ The tracking payload may include:
 
 The stored JSON includes summary counts, unique visitor IDs, identified user emails when available, language counts, per-visitor activity, and recent widget events.
 
+## Do-Not-Translate Text
+
+Some names, brands, and technical terms should remain unchanged. The widget supports protected terms through:
+
+```html
+<script>
+  window.THINKIFIC_SUNBIRD_PROTECTED_TERMS = [
+    "10X",
+    "10X Academy",
+    "Outbox"
+  ];
+</script>
+```
+
+The production Thinkific snippet already includes the first protected terms list.
+
+To prevent an entire block from being translated, add one of these to the HTML element:
+
+```html
+<span translate="no">Outbox</span>
+<div class="notranslate">Do not translate this section</div>
+<div class="snb-no-translate">Do not translate this section</div>
+<div data-snb-no-translate>Do not translate this section</div>
+```
+
+Expected behavior:
+
+- Protected names remain unchanged inside translated sentences.
+- Sections marked with `translate="no"`, `.notranslate`, `.snb-no-translate`, or `data-snb-no-translate` are skipped completely.
+
 ## Known Issue: Sunbird Quota
 
 The current Sunbird API key has a daily quota limit.

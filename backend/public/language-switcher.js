@@ -7,6 +7,7 @@
     apiBaseUrl: window.THINKIFIC_SUNBIRD_API_BASE || `${scriptOrigin}/public`,
     sourceLanguage: window.THINKIFIC_SUNBIRD_SOURCE_LANGUAGE || "eng",
     languages: window.THINKIFIC_SUNBIRD_LANGUAGES || null,
+    protectedTerms: window.THINKIFIC_SUNBIRD_PROTECTED_TERMS || [],
     trackingEnabled: window.THINKIFIC_SUNBIRD_TRACKING !== false,
     fallbackLanguages: [
       { code: "eng", label: "English" },
@@ -132,11 +133,52 @@
     return text;
   }
 
+  function escapeRegExp(value) {
+    return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
+
+  function getProtectedTerms() {
+    return Array.isArray(config.protectedTerms)
+      ? config.protectedTerms.map((term) => String(term || "").trim()).filter(Boolean)
+      : [];
+  }
+
+  function protectTerms(text) {
+    const terms = getProtectedTerms();
+    if (!terms.length) return { text, placeholders: [] };
+
+    const placeholders = [];
+    let protectedText = text;
+
+    terms
+      .sort((first, second) => second.length - first.length)
+      .forEach((term) => {
+        const token = `__SNB_PROTECTED_${placeholders.length}__`;
+        const pattern = new RegExp(`(^|[^\\p{L}\\p{N}_])(${escapeRegExp(term)})(?=$|[^\\p{L}\\p{N}_])`, "gu");
+        let matched = false;
+        protectedText = protectedText.replace(pattern, (match, prefix, value) => {
+          matched = true;
+          return `${prefix}${token}`;
+        });
+        if (matched) placeholders.push({ token, value: term });
+      });
+
+    return { text: protectedText, placeholders };
+  }
+
+  function restoreProtectedTerms(text, placeholders = []) {
+    return placeholders.reduce(
+      (value, placeholder) => value.replaceAll(placeholder.token, placeholder.value),
+      text || ""
+    );
+  }
+
   function shouldSkipNode(node) {
     const parent = node.parentElement;
     if (!parent) return true;
     if (!node.nodeValue || !getTranslatableText(node.nodeValue)) return true;
     if (parent.closest("[data-snb]")) return true;
+    if (parent.closest("[data-snb-no-translate], [translate='no'], .snb-no-translate, .notranslate")) return true;
     if (parent.closest("script,style,noscript,svg,canvas,code,pre,input,textarea,select,video,audio,iframe")) return true;
     if (parent.isContentEditable) return true;
     if (!isVisibleElement(parent)) return true;
@@ -172,7 +214,8 @@
     node.nodeValue = `${leading}${translatedText || getTranslatableText(original)}${trailing}`;
   }
 
-  async function translateBatch(texts, targetLanguage) {
+  async function translateBatch(items, targetLanguage) {
+    const texts = items.map((item) => item.text);
     const key = `${targetLanguage}:${JSON.stringify(texts)}`;
     if (state.cache.has(key)) return state.cache.get(key);
 
@@ -191,8 +234,11 @@
     }
 
     const payload = await res.json();
-    state.cache.set(key, payload.translations);
-    return payload.translations;
+    const translations = (payload.translations || []).map((translation, index) =>
+      restoreProtectedTerms(translation, items[index]?.placeholders)
+    );
+    state.cache.set(key, translations);
+    return translations;
   }
 
   async function switchLanguage(code, label) {
@@ -219,7 +265,10 @@
       } else {
         let completed = 0;
         for (const batch of chunks(nodes, config.batchSize)) {
-          const originals = batch.map((n) => getTranslatableText(state.originalText.get(n) || n.nodeValue));
+          const originals = batch.map((n) => {
+            const original = getTranslatableText(state.originalText.get(n) || n.nodeValue);
+            return protectTerms(original);
+          });
           const translations = await translateBatch(originals, code);
           batch.forEach((n, i) => applyTranslatedText(n, translations[i]));
           completed += batch.length;
