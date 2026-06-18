@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { config } from "../../config/index.js";
+import { getTranslationCacheSummary } from "../cache/translationCache.js";
 
 const counters = new Map();
 const apiStats = new Map();
@@ -238,6 +239,7 @@ export function getMetrics() {
     apis: Array.from(apiStats.values()).map(({ totalDurationMs, ...stat }) => stat),
     recentCalls: [...recentCalls],
     recentWidgetEvents: [...recentWidgetEvents],
+    translationCache: getTranslationCacheSummary(),
     widgetSummary: {
       totalEvents: widgetAnalytics.totals.totalEvents,
       uniqueVisitors,

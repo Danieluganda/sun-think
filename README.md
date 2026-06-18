@@ -1,12 +1,31 @@
 # Thinkific Sunbird
 
-Admin dashboard and backend service for monitoring Thinkific and Sunbird translation activity.
+Admin dashboard, backend API, and Thinkific floating translation widget for the 10X Academy course experience.
 
-## Start Everything
+The live widget is served from Azure and embedded in Thinkific as a green floating **Language** button in the lower-right corner of the course page.
+
+## Live Deployment
+
+- Azure app: `https://mail-verify-hmhah3c7fbbgf9f4.canadacentral-01.azurewebsites.net`
+- Health check: `https://mail-verify-hmhah3c7fbbgf9f4.canadacentral-01.azurewebsites.net/health`
+- Widget script: `https://mail-verify-hmhah3c7fbbgf9f4.canadacentral-01.azurewebsites.net/widget/language-switcher.js`
+- Thinkific course page: `https://10xacademy.outbox.africa/courses/10x-foundation-course`
+
+## What This App Does
+
+- Serves the Thinkific language switcher widget.
+- Translates visible Thinkific course text through the Sunbird Translation API.
+- Caches translated course text so repeated text does not call Sunbird again.
+- Tracks widget usage events such as menu opens, language selections, completed translations, and failed translations.
+- Stores widget visitor/user analytics in a JSON file.
+- Provides an admin UI and `/api/metrics` endpoint for monitoring API health and widget activity.
+
+## Local Setup
 
 From this folder:
 
 ```bash
+npm run install:all
 npm run dev
 ```
 
@@ -14,16 +33,151 @@ That starts both services:
 
 - Backend API: `http://localhost:4100`
 - Admin UI: `http://localhost:5173`
-- Thinkific widget script: `http://localhost:4100/widget/language-switcher.js`
+- Local widget script: `http://localhost:4100/widget/language-switcher.js`
 
 Stop both services with `Ctrl+C`.
 
-## Other Commands
+## Environment Variables
+
+Backend configuration is read from `backend/.env` locally or Azure App Service settings in production.
+
+Required for production translation:
 
 ```bash
-npm run build
-npm test
-npm run install:all
+SUNBIRD_API_URL=https://api.sunbird.ai/tasks/translate
+SUNBIRD_API_KEY=...
 ```
 
-Use `npm run install:all` after cloning or when dependencies are missing.
+Required for Thinkific API operations:
+
+```bash
+THINKIFIC_GRAPHQL_URL=https://api.thinkific.com/stable/graphql
+THINKIFIC_TOKEN=...
+```
+
+Optional:
+
+```bash
+API_TOKEN=...
+DB_PATH=./data/jobs.db
+OUTPUT_DIR=./output
+LOG_DIR=./logs
+WIDGET_ANALYTICS_PATH=./data/widget-analytics.json
+WIDGET_ANALYTICS_MAX_EVENTS=5000
+TRANSLATION_CACHE_PATH=./data/translation-cache.json
+TRANSLATION_CACHE_MAX_ENTRIES=20000
+```
+
+In Azure, persistent storage paths are set to:
+
+```bash
+WIDGET_ANALYTICS_PATH=/home/data/widget-analytics.json
+TRANSLATION_CACHE_PATH=/home/data/translation-cache.json
+```
+
+That keeps widget analytics and cached translations on App Service persistent storage instead of inside the replaceable container filesystem.
+
+## Thinkific Widget
+
+The Thinkific custom-code snippet is kept in:
+
+```bash
+scripts/thinkific-custom-code.html
+```
+
+The production snippet includes:
+
+```html
+<script>
+  window.THINKIFIC_SUNBIRD_SOURCE_LANGUAGE = "eng";
+</script>
+<script src="https://mail-verify-hmhah3c7fbbgf9f4.canadacentral-01.azurewebsites.net/widget/language-switcher.js" defer></script>
+```
+
+## Analytics Storage
+
+Widget activity is saved to JSON. The stored data includes:
+
+- total widget events
+- unique visitor IDs
+- identified user emails when Thinkific exposes them
+- language selections
+- completed translations
+- failed translations
+- top languages
+- per-visitor activity
+- recent widget events
+
+The JSON file is ignored by Git so learner/user data is not committed.
+
+## Translation Cache
+
+Translated text is cached by source language, target language, and normalized source text.
+
+If one learner translates `Course Curriculum` into Luganda, the next learner requesting that same text gets the cached translation instead of making another Sunbird API call. This improves speed and reduces Sunbird quota usage.
+
+The cache is stored at:
+
+```bash
+backend/data/translation-cache.json
+```
+
+In Azure, it is stored at:
+
+```bash
+/home/data/translation-cache.json
+```
+
+## Testing
+
+Useful checks:
+
+```bash
+npm test
+npm run build
+```
+
+Live smoke checks:
+
+```bash
+curl https://mail-verify-hmhah3c7fbbgf9f4.canadacentral-01.azurewebsites.net/health
+curl https://mail-verify-hmhah3c7fbbgf9f4.canadacentral-01.azurewebsites.net/api/metrics
+```
+
+Manual widget test:
+
+1. Open `https://10xacademy.outbox.africa/courses/10x-foundation-course`.
+2. Find the green **Language** button at the lower-right corner.
+3. Open the language menu.
+4. Select a language.
+5. Confirm translation behavior and check `/api/metrics` for widget activity.
+
+More details are in:
+
+- `docs/translation-widget-test-guide.md`
+- `docs/translation-widget-release-note.md`
+- `docs/translation-widget-email-draft.md`
+
+## Deployment
+
+The app is containerized with `Dockerfile`.
+
+Production deployment currently uses Azure Container Registry and Azure App Service:
+
+```bash
+az acr build --registry cformsliveacr --image mail-verify:<tag> --no-logs .
+az webapp config container set --name mail-verify --resource-group 3534535243_group --container-image-name cformsliveacr.azurecr.io/mail-verify:<tag>
+az webapp restart --name mail-verify --resource-group 3534535243_group
+```
+
+Use a new image tag for each deployment.
+
+## Known Limitation
+
+The Sunbird API key currently has a daily quota. When the quota is exhausted, translation requests can fail with:
+
+```text
+429 Daily quota exceeded
+```
+
+The widget remains live and tracks the failed event, but translation availability depends on Sunbird quota. A production quota increase or fallback provider is recommended.
