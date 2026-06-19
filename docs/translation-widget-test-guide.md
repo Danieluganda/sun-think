@@ -113,6 +113,8 @@ The widget now attempts to translate text inside embedded iframes when the brows
 
 Some third-party embeds, such as Genially, usually block this access because they run on another domain. For those embeds, the reliable approach is to create translated versions of the embedded content and configure the widget to switch iframe URLs by selected language.
 
+Admins can manage these URLs from the dashboard in the **Embedded Content URLs** panel.
+
 Example:
 
 ```html

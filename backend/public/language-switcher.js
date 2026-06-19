@@ -28,6 +28,7 @@
     originalEmbedSrc: new WeakMap(),
     cache: new Map(),
     protectedTerms: [],
+    embedUrls: [],
     currentLanguage: "eng",
     currentLabel: "English",
     translating: false,
@@ -249,10 +250,10 @@
   }
 
   function applyEmbedMappings(code) {
-    if (!Array.isArray(config.embedUrls) || !config.embedUrls.length) return 0;
+    if (!Array.isArray(state.embedUrls) || !state.embedUrls.length) return 0;
 
     let changed = 0;
-    config.embedUrls.forEach((mapping) => {
+    state.embedUrls.forEach((mapping) => {
       const selector = getEmbedSelector(mapping);
       const targetUrl = getEmbedTargetUrl(mapping, code);
       document.querySelectorAll(selector).forEach((iframe) => {
@@ -400,6 +401,20 @@
       state.protectedTerms = [...new Set([...remoteTerms, ...localTerms].map((term) => String(term || "").trim()).filter(Boolean))];
     } catch {
       state.protectedTerms = [...new Set(localTerms.map((term) => String(term || "").trim()).filter(Boolean))];
+    }
+  }
+
+  async function loadEmbedMappings() {
+    const localMappings = Array.isArray(config.embedUrls) ? config.embedUrls : [];
+
+    try {
+      const res = await fetch(`${config.apiBaseUrl}/embed-mappings`);
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      const remoteMappings = Array.isArray(data.mappings) ? data.mappings : [];
+      state.embedUrls = [...remoteMappings, ...localMappings];
+    } catch {
+      state.embedUrls = localMappings;
     }
   }
 
@@ -576,7 +591,7 @@
   async function mount() {
     if (document.querySelector("[data-snb='root']")) return;
 
-    const [languages] = await Promise.all([loadLanguages(), loadProtectedTerms()]);
+    const [languages] = await Promise.all([loadLanguages(), loadProtectedTerms(), loadEmbedMappings()]);
     injectStyles();
 
     tooltipEl = el("div", { "data-snb": "tooltip" });

@@ -15,6 +15,7 @@ import {
   Zap
 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { getEmbedMappings, removeEmbedMapping, saveEmbedMapping } from "../api/embedMappings.js";
 import { addProtectedTerm, getProtectedTerms, removeProtectedTerm } from "../api/protectedTerms.js";
 import { testTranslation } from "../api/translate.js";
 import { Badge } from "../components/common/Badge.jsx";
@@ -429,6 +430,157 @@ function ProtectedTermsManager() {
   );
 }
 
+function CacheStatus({ cache }) {
+  const entries = cache?.entries || 0;
+  const maxEntries = cache?.maxEntries || 0;
+  const usedPercent = maxEntries ? Math.round((entries / maxEntries) * 100) : 0;
+
+  return (
+    <section className="dashboard-card cache-status-card">
+      <div className="panel-heading">
+        <div>
+          <h2>Translation Cache</h2>
+          <p>Cached text avoids repeated Sunbird calls.</p>
+        </div>
+        <Badge tone={entries ? "success" : "neutral"}>{entries} entries</Badge>
+      </div>
+      <div className="usage-meter">
+        <div>
+          <span>Cache capacity</span>
+          <small>{entries} / {maxEntries || "unlimited"}</small>
+        </div>
+        <progress max="100" value={usedPercent} />
+      </div>
+      <p className="embed-note">
+        Updated: {cache?.updatedAt ? formatDate(cache.updatedAt) : "Not warmed yet"}
+      </p>
+    </section>
+  );
+}
+
+function EmbedMappingsManager() {
+  const [mappings, setMappings] = useState([]);
+  const [form, setForm] = useState({
+    label: "Genially lesson",
+    srcIncludes: "genially",
+    lug: "",
+    ach: "",
+    teo: "",
+    lgg: "",
+    nyn: ""
+  });
+  const [state, setState] = useState({ loading: true, saving: false, error: "" });
+
+  useEffect(() => {
+    let mounted = true;
+    getEmbedMappings()
+      .then((payload) => {
+        if (!mounted) return;
+        setMappings(payload.mappings || []);
+        setState({ loading: false, saving: false, error: "" });
+      })
+      .catch((error) => {
+        if (!mounted) return;
+        setState({ loading: false, saving: false, error: error.message });
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  function updateForm(key, value) {
+    setForm((current) => ({ ...current, [key]: value }));
+  }
+
+  async function handleSave(event) {
+    event.preventDefault();
+    const urls = {
+      lug: form.lug,
+      ach: form.ach,
+      teo: form.teo,
+      lgg: form.lgg,
+      nyn: form.nyn
+    };
+
+    setState({ loading: false, saving: true, error: "" });
+    try {
+      const payload = await saveEmbedMapping({
+        label: form.label,
+        srcIncludes: form.srcIncludes,
+        urls
+      });
+      setMappings(payload.mappings || []);
+      setForm((current) => ({ ...current, lug: "", ach: "", teo: "", lgg: "", nyn: "" }));
+      setState({ loading: false, saving: false, error: "" });
+    } catch (error) {
+      setState({ loading: false, saving: false, error: error.message });
+    }
+  }
+
+  async function handleRemove(id) {
+    setState({ loading: false, saving: true, error: "" });
+    try {
+      const payload = await removeEmbedMapping(id);
+      setMappings(payload.mappings || []);
+      setState({ loading: false, saving: false, error: "" });
+    } catch (error) {
+      setState({ loading: false, saving: false, error: error.message });
+    }
+  }
+
+  return (
+    <section className="dashboard-card embed-mappings-card">
+      <div className="panel-heading">
+        <div>
+          <h2>Embedded Content URLs</h2>
+          <p>Switch Genially or iframe content to translated versions.</p>
+        </div>
+      </div>
+      <form className="embed-mapping-form" onSubmit={handleSave}>
+        <label>
+          Label
+          <input value={form.label} onChange={(event) => updateForm("label", event.target.value)} />
+        </label>
+        <label>
+          iframe src contains
+          <input value={form.srcIncludes} onChange={(event) => updateForm("srcIncludes", event.target.value)} />
+        </label>
+        {["lug", "ach", "teo", "lgg", "nyn"].map((language) => (
+          <label key={language}>
+            {language.toUpperCase()} URL
+            <input
+              placeholder={`https://view.genial.ly/${language}-version`}
+              value={form[language]}
+              onChange={(event) => updateForm(language, event.target.value)}
+            />
+          </label>
+        ))}
+        <Button disabled={state.saving} type="submit">Save Embed URLs</Button>
+      </form>
+      {state.loading ? <Spinner /> : null}
+      {state.error ? <p className="notice">Embed mappings unavailable: {state.error}</p> : null}
+      <div className="embed-mapping-list">
+        {mappings.map((mapping) => (
+          <article className="embed-mapping-item" key={mapping.id}>
+            <div>
+              <strong>{mapping.label}</strong>
+              <small>{mapping.srcIncludes || mapping.selector}</small>
+            </div>
+            <span>{Object.keys(mapping.urls || {}).join(", ") || "No languages"}</span>
+            <button aria-label={`Remove ${mapping.label}`} disabled={state.saving} onClick={() => handleRemove(mapping.id)} type="button">
+              <Trash2 size={15} />
+            </button>
+          </article>
+        ))}
+      </div>
+      {!state.loading && !mappings.length ? (
+        <EmptyState title="No embedded URLs yet" body="Add translated Genially URLs before expecting cross-origin embeds to switch language." />
+      ) : null}
+    </section>
+  );
+}
+
 export function MonitorPage({ onNavigate }) {
   const { metrics, loading, error } = useMetrics({ pollMs: 5000 });
   const recentCalls = metrics.recentCalls.slice(0, 5);
@@ -441,6 +593,7 @@ export function MonitorPage({ onNavigate }) {
     : 0;
   const successRate = totalCalls ? Math.round((success / totalCalls) * 100) : 0;
   const widgetSummary = metrics.widgetSummary || {};
+  const translationCache = metrics.translationCache || {};
 
   return (
     <PageWrapper>
@@ -496,6 +649,8 @@ export function MonitorPage({ onNavigate }) {
           <WidgetActivity events={metrics.recentWidgetEvents || []} />
           <TranslationTest />
           <ProtectedTermsManager />
+          <EmbedMappingsManager />
+          <CacheStatus cache={translationCache} />
           <UsageOverview totalCalls={totalCalls} success={success} failures={failures} onNavigate={onNavigate} />
           <QuickLinks onNavigate={onNavigate} />
         </div>

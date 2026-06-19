@@ -9,6 +9,8 @@ backend/data/translation-cache.json
 backend/data/translation-cache.json.tmp
 backend/data/protected-terms.json
 backend/data/protected-terms.json.tmp
+backend/data/embed-mappings.json
+backend/data/embed-mappings.json.tmp
 backend/output/
 backend/logs/
 ui/dist/

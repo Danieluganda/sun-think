@@ -558,6 +558,11 @@ th {
   grid-column: span 2;
 }
 
+.embed-mappings-card,
+.cache-status-card {
+  grid-column: span 2;
+}
+
 .panel-heading {
   align-items: start;
   display: flex;
@@ -909,6 +914,69 @@ progress.amber::-webkit-progress-value {
   background: #dcfce7;
 }
 
+.embed-mapping-form {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.embed-mapping-form label {
+  color: #334155;
+  display: grid;
+  font-size: 0.88rem;
+  font-weight: 800;
+  gap: 8px;
+}
+
+.embed-mapping-form .btn {
+  align-self: end;
+  justify-self: start;
+}
+
+.embed-mapping-list {
+  display: grid;
+  gap: 8px;
+}
+
+.embed-mapping-item {
+  align-items: center;
+  border: 1px solid #edf1f6;
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(180px, 1fr) minmax(110px, auto) auto;
+  min-height: 52px;
+  padding: 10px 12px;
+}
+
+.embed-mapping-item div {
+  display: grid;
+  min-width: 0;
+}
+
+.embed-mapping-item strong {
+  color: #071326;
+}
+
+.embed-mapping-item small,
+.embed-mapping-item span {
+  color: #8c97aa;
+  font-size: 0.78rem;
+}
+
+.embed-mapping-item button {
+  align-items: center;
+  background: #fff1f2;
+  border: 0;
+  border-radius: 7px;
+  color: #be123c;
+  display: inline-flex;
+  height: 30px;
+  justify-content: center;
+  padding: 0;
+  width: 30px;
+}
+
 .recent-events-card {
   align-content: start;
   overflow: hidden;
@@ -1160,7 +1228,9 @@ td small {
   .request-chart-card,
   .recent-events-card,
   .translation-test-card,
-  .protected-terms-card {
+  .protected-terms-card,
+  .embed-mappings-card,
+  .cache-status-card {
     grid-column: auto;
   }
 
@@ -1187,7 +1257,8 @@ td small {
   }
 
   .translation-test-actions,
-  .protected-terms-form {
+  .protected-terms-form,
+  .embed-mapping-form {
     grid-template-columns: 1fr;
   }
 

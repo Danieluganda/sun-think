@@ -34,6 +34,7 @@ export const config = {
   widgetAnalyticsPath: resolveFromRoot(process.env.WIDGET_ANALYTICS_PATH, "./data/widget-analytics.json"),
   translationCachePath: resolveFromRoot(process.env.TRANSLATION_CACHE_PATH, "./data/translation-cache.json"),
   protectedTermsPath: resolveFromRoot(process.env.PROTECTED_TERMS_PATH, "./data/protected-terms.json"),
+  embedMappingsPath: resolveFromRoot(process.env.EMBED_MAPPINGS_PATH, "./data/embed-mappings.json"),
   outputDir: resolveFromRoot(process.env.OUTPUT_DIR, "./output"),
   logDir: resolveFromRoot(process.env.LOG_DIR, "./logs")
 };
