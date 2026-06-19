@@ -16,6 +16,7 @@ What is complete:
 - Google Cloud Translation fallback is disabled to avoid billing.
 - Translation cache is enabled for repeated course text.
 - Widget analytics are saved to persistent JSON storage.
+- Do-not-translate words can be managed from the dashboard.
 - Controlled backend concurrency is enabled for uncached translations.
 - Pre-translation command is available, but should only be run when Sunbird quota is available.
 
@@ -92,6 +93,7 @@ WIDGET_ANALYTICS_FLUSH_MS=1000
 TRANSLATION_CACHE_PATH=./data/translation-cache.json
 TRANSLATION_CACHE_MAX_ENTRIES=20000
 TRANSLATION_CONCURRENCY=3
+PROTECTED_TERMS_PATH=./data/protected-terms.json
 GOOGLE_TRANSLATE_ENABLED=false
 GOOGLE_TRANSLATE_API_KEY=...
 GOOGLE_TRANSLATE_API_URL=https://translation.googleapis.com/language/translate/v2
@@ -102,9 +104,10 @@ In Azure, persistent storage paths are set to:
 ```bash
 WIDGET_ANALYTICS_PATH=/home/data/widget-analytics.json
 TRANSLATION_CACHE_PATH=/home/data/translation-cache.json
+PROTECTED_TERMS_PATH=/home/data/protected-terms.json
 ```
 
-That keeps widget analytics and cached translations on App Service persistent storage instead of inside the replaceable container filesystem.
+That keeps widget analytics, cached translations, and do-not-translate terms on App Service persistent storage instead of inside the replaceable container filesystem.
 
 ## Thinkific Widget
 
@@ -155,6 +158,28 @@ In Azure, it is stored at:
 
 ```bash
 /home/data/translation-cache.json
+```
+
+## Protected Terms
+
+The dashboard includes a **Do-Not-Translate Words** panel where admins can add or remove names, brands, and phrases that should remain unchanged.
+
+The widget reads these terms from:
+
+```bash
+/public/protected-terms
+```
+
+Dashboard edits are saved to:
+
+```bash
+backend/data/protected-terms.json
+```
+
+In Azure, they are stored at:
+
+```bash
+/home/data/protected-terms.json
 ```
 
 ## Pre-Translation

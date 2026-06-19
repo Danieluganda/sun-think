@@ -7,6 +7,8 @@ backend/data/widget-analytics.json
 backend/data/widget-analytics.json.tmp
 backend/data/translation-cache.json
 backend/data/translation-cache.json.tmp
+backend/data/protected-terms.json
+backend/data/protected-terms.json.tmp
 backend/output/
 backend/logs/
 ui/dist/

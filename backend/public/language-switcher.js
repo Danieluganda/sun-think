@@ -25,6 +25,7 @@
   const state = {
     originalText: new WeakMap(),
     cache: new Map(),
+    protectedTerms: [],
     currentLanguage: "eng",
     currentLabel: "English",
     translating: false,
@@ -138,9 +139,7 @@
   }
 
   function getProtectedTerms() {
-    return Array.isArray(config.protectedTerms)
-      ? config.protectedTerms.map((term) => String(term || "").trim()).filter(Boolean)
-      : [];
+    return state.protectedTerms;
   }
 
   function protectTerms(text) {
@@ -320,6 +319,20 @@
     }
   }
 
+  async function loadProtectedTerms() {
+    const localTerms = Array.isArray(config.protectedTerms) ? config.protectedTerms : [];
+
+    try {
+      const res = await fetch(`${config.apiBaseUrl}/protected-terms`);
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      const remoteTerms = Array.isArray(data.terms) ? data.terms : [];
+      state.protectedTerms = [...new Set([...remoteTerms, ...localTerms].map((term) => String(term || "").trim()).filter(Boolean))];
+    } catch {
+      state.protectedTerms = [...new Set(localTerms.map((term) => String(term || "").trim()).filter(Boolean))];
+    }
+  }
+
   function el(tag, attrs = {}, children = []) {
     const node = document.createElement(tag);
     Object.entries(attrs).forEach(([k, v]) => {
@@ -493,7 +506,7 @@
   async function mount() {
     if (document.querySelector("[data-snb='root']")) return;
 
-    const languages = await loadLanguages();
+    const [languages] = await Promise.all([loadLanguages(), loadProtectedTerms()]);
     injectStyles();
 
     tooltipEl = el("div", { "data-snb": "tooltip" });

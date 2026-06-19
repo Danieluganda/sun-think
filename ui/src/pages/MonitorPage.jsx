@@ -11,9 +11,11 @@ import {
   Radio,
   ShieldCheck,
   Star,
+  Trash2,
   Zap
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { addProtectedTerm, getProtectedTerms, removeProtectedTerm } from "../api/protectedTerms.js";
 import { testTranslation } from "../api/translate.js";
 import { Badge } from "../components/common/Badge.jsx";
 import { Button } from "../components/common/Button.jsx";
@@ -332,6 +334,101 @@ function TranslationTest() {
   );
 }
 
+function ProtectedTermsManager() {
+  const [terms, setTerms] = useState([]);
+  const [term, setTerm] = useState("");
+  const [state, setState] = useState({ loading: true, saving: false, error: "" });
+
+  useEffect(() => {
+    let mounted = true;
+    getProtectedTerms()
+      .then((payload) => {
+        if (!mounted) return;
+        setTerms(payload.terms || []);
+        setState({ loading: false, saving: false, error: "" });
+      })
+      .catch((error) => {
+        if (!mounted) return;
+        setState({ loading: false, saving: false, error: error.message });
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  async function handleAdd(event) {
+    event.preventDefault();
+    const cleanTerm = term.trim();
+    if (!cleanTerm) return;
+
+    setState({ loading: false, saving: true, error: "" });
+    try {
+      const payload = await addProtectedTerm(cleanTerm);
+      setTerms(payload.terms || []);
+      setTerm("");
+      setState({ loading: false, saving: false, error: "" });
+    } catch (error) {
+      setState({ loading: false, saving: false, error: error.message });
+    }
+  }
+
+  async function handleRemove(value) {
+    setState({ loading: false, saving: true, error: "" });
+    try {
+      const payload = await removeProtectedTerm(value);
+      setTerms(payload.terms || []);
+      setState({ loading: false, saving: false, error: "" });
+    } catch (error) {
+      setState({ loading: false, saving: false, error: error.message });
+    }
+  }
+
+  return (
+    <section className="dashboard-card protected-terms-card">
+      <div className="panel-heading">
+        <div>
+          <h2>Do-Not-Translate Words</h2>
+          <p>Protect names, brands, and phrases from widget translation.</p>
+        </div>
+      </div>
+      <form className="protected-terms-form" onSubmit={handleAdd}>
+        <label>
+          Word or phrase
+          <input
+            placeholder="The 10X Program"
+            value={term}
+            onChange={(event) => setTerm(event.target.value)}
+          />
+        </label>
+        <Button disabled={state.saving || !term.trim()} type="submit">
+          Add
+        </Button>
+      </form>
+      {state.loading ? <Spinner /> : null}
+      {state.error ? <p className="notice">Protected terms unavailable: {state.error}</p> : null}
+      <div className="protected-term-list">
+        {terms.map((item) => (
+          <span className="protected-term-chip" key={item}>
+            {item}
+            <button
+              aria-label={`Remove ${item}`}
+              disabled={state.saving}
+              onClick={() => handleRemove(item)}
+              type="button"
+            >
+              <Trash2 size={13} />
+            </button>
+          </span>
+        ))}
+      </div>
+      {!state.loading && !terms.length ? (
+        <EmptyState title="No protected words yet" body="Add names or brands that should stay unchanged." />
+      ) : null}
+    </section>
+  );
+}
+
 export function MonitorPage({ onNavigate }) {
   const { metrics, loading, error } = useMetrics({ pollMs: 5000 });
   const recentCalls = metrics.recentCalls.slice(0, 5);
@@ -398,6 +495,7 @@ export function MonitorPage({ onNavigate }) {
           </section>
           <WidgetActivity events={metrics.recentWidgetEvents || []} />
           <TranslationTest />
+          <ProtectedTermsManager />
           <UsageOverview totalCalls={totalCalls} success={success} failures={failures} onNavigate={onNavigate} />
           <QuickLinks onNavigate={onNavigate} />
         </div>

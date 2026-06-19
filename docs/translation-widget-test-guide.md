@@ -75,7 +75,9 @@ The stored JSON includes summary counts, unique visitor IDs, identified user ema
 
 ## Do-Not-Translate Text
 
-Some names, brands, and technical terms should remain unchanged. The widget supports protected terms through:
+Some names, brands, and technical terms should remain unchanged. Admins can manage these from the dashboard in the **Do-Not-Translate Words** panel.
+
+The widget also supports protected terms through the Thinkific snippet:
 
 ```html
 <script>
@@ -89,7 +91,7 @@ Some names, brands, and technical terms should remain unchanged. The widget supp
 </script>
 ```
 
-The production Thinkific snippet already includes the first protected terms list.
+The production Thinkific snippet already includes the first protected terms list. Dashboard-managed terms are loaded from the backend and merged with the snippet list.
 
 To prevent an entire block from being translated, add one of these to the HTML element:
 

@@ -12,6 +12,7 @@ import { languagesRouter } from "./routes/languages.js";
 import { metricsRouter } from "./routes/metrics.js";
 import { translateRouter } from "./routes/translate.js";
 import { widgetEventsRouter } from "./routes/widgetEvents.js";
+import { protectedTermsRouter, publicProtectedTermsRouter } from "./routes/protectedTerms.js";
 import { logger } from "../logger/index.js";
 import { flushWidgetAnalytics } from "../logger/metrics.js";
 
@@ -28,6 +29,7 @@ export function createServer() {
   app.use("/public/languages", languagesRouter);
   app.use("/public/translate", translateRouter);
   app.use("/public/widget-events", widgetEventsRouter);
+  app.use("/public/protected-terms", publicProtectedTermsRouter);
   app.use(express.static(appDir));
 
   app.get("/health", (_req, res) => {
@@ -42,6 +44,7 @@ export function createServer() {
   app.use("/api/languages", languagesRouter);
   app.use("/api/metrics", metricsRouter);
   app.use("/api/translate", translateRouter);
+  app.use("/api/protected-terms", protectedTermsRouter);
 
   app.get("*", (_req, res) => {
     res.sendFile(path.join(appDir, "index.html"));
