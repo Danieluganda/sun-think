@@ -8,6 +8,7 @@
     sourceLanguage: window.THINKIFIC_SUNBIRD_SOURCE_LANGUAGE || "eng",
     languages: window.THINKIFIC_SUNBIRD_LANGUAGES || null,
     protectedTerms: window.THINKIFIC_SUNBIRD_PROTECTED_TERMS || [],
+    embedUrls: window.THINKIFIC_SUNBIRD_EMBED_URLS || [],
     trackingEnabled: window.THINKIFIC_SUNBIRD_TRACKING !== false,
     fallbackLanguages: [
       { code: "eng", label: "English" },
@@ -24,6 +25,7 @@
 
   const state = {
     originalText: new WeakMap(),
+    originalEmbedSrc: new WeakMap(),
     cache: new Map(),
     protectedTerms: [],
     currentLanguage: "eng",
@@ -99,11 +101,13 @@
   }
 
   function isVisibleElement(el) {
-    if (!el || !document.documentElement.contains(el)) return false;
+    const ownerDocument = el?.ownerDocument || document;
+    if (!el || !ownerDocument.documentElement.contains(el)) return false;
+    const ownerWindow = ownerDocument.defaultView || window;
 
     let current = el;
-    while (current && current !== document.body) {
-      const style = window.getComputedStyle(current);
+    while (current && current !== ownerDocument.body) {
+      const style = ownerWindow.getComputedStyle(current);
       if (
         style.display === "none" ||
         style.visibility === "hidden" ||
@@ -184,8 +188,8 @@
     return false;
   }
 
-  function collectTextNodes() {
-    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  function collectTextNodesFromDocument(rootDocument) {
+    const walker = rootDocument.createTreeWalker(rootDocument.body, NodeFilter.SHOW_TEXT);
     const nodes = [];
     let node = walker.nextNode();
 
@@ -197,7 +201,26 @@
       node = walker.nextNode();
     }
 
-    return nodes.slice(0, config.maxNodesPerRun);
+    return nodes;
+  }
+
+  function getAccessibleIframeDocuments() {
+    const documents = [];
+    document.querySelectorAll("iframe").forEach((iframe) => {
+      try {
+        if (!isVisibleElement(iframe)) return;
+        const frameDocument = iframe.contentDocument || iframe.contentWindow?.document;
+        if (frameDocument?.body) documents.push(frameDocument);
+      } catch {
+        // Cross-origin embeds cannot be read by the widget.
+      }
+    });
+    return documents;
+  }
+
+  function collectTextNodes() {
+    const documents = [document, ...getAccessibleIframeDocuments()];
+    return documents.flatMap((rootDocument) => collectTextNodesFromDocument(rootDocument)).slice(0, config.maxNodesPerRun);
   }
 
   function chunks(items, size) {
@@ -211,6 +234,44 @@
     const leading = original.match(/^\s*/)?.[0] || "";
     const trailing = original.match(/\s*$/)?.[0] || "";
     node.nodeValue = `${leading}${translatedText || getTranslatableText(original)}${trailing}`;
+  }
+
+  function getEmbedTargetUrl(mapping, code) {
+    if (!mapping || typeof mapping !== "object") return "";
+    const urls = mapping.urls || {};
+    return urls[code] || urls[code.toLowerCase?.()] || "";
+  }
+
+  function getEmbedSelector(mapping) {
+    if (mapping.selector) return mapping.selector;
+    if (mapping.srcIncludes) return `iframe[src*="${String(mapping.srcIncludes).replaceAll('"', '\\"')}"]`;
+    return "iframe";
+  }
+
+  function applyEmbedMappings(code) {
+    if (!Array.isArray(config.embedUrls) || !config.embedUrls.length) return 0;
+
+    let changed = 0;
+    config.embedUrls.forEach((mapping) => {
+      const selector = getEmbedSelector(mapping);
+      const targetUrl = getEmbedTargetUrl(mapping, code);
+      document.querySelectorAll(selector).forEach((iframe) => {
+        if (!state.originalEmbedSrc.has(iframe)) {
+          state.originalEmbedSrc.set(iframe, iframe.getAttribute("src") || "");
+        }
+
+        const nextUrl = code === config.sourceLanguage
+          ? state.originalEmbedSrc.get(iframe)
+          : targetUrl;
+
+        if (nextUrl && iframe.getAttribute("src") !== nextUrl) {
+          iframe.setAttribute("src", nextUrl);
+          changed += 1;
+        }
+      });
+    });
+
+    return changed;
   }
 
   async function translateBatch(items, targetLanguage) {
@@ -256,6 +317,7 @@
     });
 
     try {
+      const swappedEmbeds = applyEmbedMappings(code);
       const nodes = collectTextNodes();
       if (code === config.sourceLanguage) {
         nodes.forEach((n) => {
@@ -286,6 +348,14 @@
         durationMs: Date.now() - startedAt,
         status: "success"
       });
+      if (swappedEmbeds) {
+        trackWidgetEvent("Embedded Content Swapped", {
+          targetLanguage: code,
+          targetLabel: label,
+          embeddedCount: swappedEmbeds,
+          status: "success"
+        });
+      }
     } catch (err) {
       const message = err.code === "quota_exceeded" || err.status === 429
         ? "Daily translation quota reached"

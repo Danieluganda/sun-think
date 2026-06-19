@@ -107,6 +107,35 @@ Expected behavior:
 - Protected names remain unchanged inside translated sentences.
 - Sections marked with `translate="no"`, `.notranslate`, `.snb-no-translate`, or `data-snb-no-translate` are skipped completely.
 
+## Embedded Pages and Iframes
+
+The widget now attempts to translate text inside embedded iframes when the browser allows access to that iframe content.
+
+Some third-party embeds, such as Genially, usually block this access because they run on another domain. For those embeds, the reliable approach is to create translated versions of the embedded content and configure the widget to switch iframe URLs by selected language.
+
+Example:
+
+```html
+<script>
+  window.THINKIFIC_SUNBIRD_EMBED_URLS = [
+    {
+      srcIncludes: "genially",
+      urls: {
+        lug: "https://view.genial.ly/translated-luganda-version",
+        ach: "https://view.genial.ly/translated-acholi-version",
+        eng: "https://view.genial.ly/original-english-version"
+      }
+    }
+  ];
+</script>
+```
+
+Expected behavior:
+
+- Same-origin or accessible iframe text is translated directly.
+- Cross-origin iframe content is not directly editable by the widget.
+- Cross-origin embeds can be switched to translated versions when language-specific URLs are configured.
+
 ## Known Issue: Sunbird Quota
 
 The current Sunbird API key has a daily quota limit.
