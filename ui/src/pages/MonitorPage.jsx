@@ -264,6 +264,35 @@ function WidgetActivity({ events }) {
   );
 }
 
+function RecentApiEvents({ calls }) {
+  return (
+    <section className="dashboard-card table-wrap recent-events-card">
+      <div className="panel-heading">
+        <div>
+          <h2>Recent API Events</h2>
+          <p>Latest Thinkific and Sunbird calls</p>
+        </div>
+      </div>
+      <div className="recent-event-list">
+        {calls.map((call) => (
+          <article className="recent-event-item" key={`${call.api}-${call.time}-${call.durationMs}`}>
+            <div>
+              <strong>{call.api}</strong>
+              <small>{getApiTitle(call.api)}</small>
+            </div>
+            <span>{formatDate(call.time)}</span>
+            <Badge tone={call.ok ? "success" : "danger"}>{call.ok ? "success" : "failed"}</Badge>
+            <span>{formatMs(call.durationMs)}</span>
+          </article>
+        ))}
+      </div>
+      {!calls.length ? (
+        <EmptyState title="No API calls recorded yet" body="Run a course fetch or translation job to start collecting metrics." />
+      ) : null}
+    </section>
+  );
+}
+
 function TranslationTest() {
   const { sourceLanguage, targetLanguages, loading: languagesLoading, error: languagesError } = useLanguages();
   const [text, setText] = useState("Welcome to the course.");
@@ -582,6 +611,7 @@ function EmbedMappingsManager() {
 }
 
 export function MonitorPage({ onNavigate }) {
+  const [activePanel, setActivePanel] = useState("activity");
   const { metrics, loading, error } = useMetrics({ pollMs: 5000 });
   const recentCalls = metrics.recentCalls.slice(0, 5);
   const totalCalls = metrics.apis.reduce((sum, api) => sum + api.total, 0);
@@ -594,6 +624,12 @@ export function MonitorPage({ onNavigate }) {
   const successRate = totalCalls ? Math.round((success / totalCalls) * 100) : 0;
   const widgetSummary = metrics.widgetSummary || {};
   const translationCache = metrics.translationCache || {};
+  const panels = [
+    { id: "activity", label: "Activity" },
+    { id: "translation", label: "Translation Tools" },
+    { id: "embeds", label: "Embedded Content" },
+    { id: "admin", label: "Admin" }
+  ];
 
   return (
     <PageWrapper>
@@ -617,43 +653,65 @@ export function MonitorPage({ onNavigate }) {
       {loading ? <Spinner /> : null}
 
       {!loading ? (
-        <div className="dashboard-grid">
+        <>
+        <div className="dashboard-overview-grid">
           <RequestChart calls={metrics.recentCalls} />
-          <DeliveryStatus totalCalls={totalCalls} success={success} failures={failures} />
-          <ApiHealthList apis={metrics.apis} />
+          <div className="dashboard-side-stack">
+            <ApiHealthList apis={metrics.apis} />
+            <CacheStatus cache={translationCache} />
+            <DeliveryStatus totalCalls={totalCalls} success={success} failures={failures} />
+          </div>
+        </div>
 
-          <section className="dashboard-card table-wrap recent-events-card">
-            <div className="panel-heading">
-              <div>
-                <h2>Recent API Events</h2>
-                <p>Latest Thinkific and Sunbird calls</p>
-              </div>
+        <section className="dashboard-card dashboard-tabs-card">
+          <div className="dashboard-tabs-header">
+            <div>
+              <h2>Operations</h2>
+              <p>Review activity and manage translation controls.</p>
             </div>
-            <div className="recent-event-list">
-              {recentCalls.map((call) => (
-                <article className="recent-event-item" key={`${call.api}-${call.time}-${call.durationMs}`}>
-                  <div>
-                    <strong>{call.api}</strong>
-                    <small>{getApiTitle(call.api)}</small>
-                  </div>
-                  <span>{formatDate(call.time)}</span>
-                  <Badge tone={call.ok ? "success" : "danger"}>{call.ok ? "success" : "failed"}</Badge>
-                  <span>{formatMs(call.durationMs)}</span>
-                </article>
+            <div className="dashboard-tabs" role="tablist" aria-label="Dashboard sections">
+              {panels.map((panel) => (
+                <button
+                  aria-selected={activePanel === panel.id}
+                  key={panel.id}
+                  onClick={() => setActivePanel(panel.id)}
+                  role="tab"
+                  type="button"
+                >
+                  {panel.label}
+                </button>
               ))}
             </div>
-            {!recentCalls.length ? (
-              <EmptyState title="No API calls recorded yet" body="Run a course fetch or translation job to start collecting metrics." />
-            ) : null}
-          </section>
-          <WidgetActivity events={metrics.recentWidgetEvents || []} />
-          <TranslationTest />
-          <ProtectedTermsManager />
-          <EmbedMappingsManager />
-          <CacheStatus cache={translationCache} />
-          <UsageOverview totalCalls={totalCalls} success={success} failures={failures} onNavigate={onNavigate} />
-          <QuickLinks onNavigate={onNavigate} />
-        </div>
+          </div>
+
+          {activePanel === "activity" ? (
+            <div className="dashboard-tab-grid">
+              <RecentApiEvents calls={recentCalls} />
+              <WidgetActivity events={metrics.recentWidgetEvents || []} />
+            </div>
+          ) : null}
+
+          {activePanel === "translation" ? (
+            <div className="dashboard-tab-grid">
+              <TranslationTest />
+              <ProtectedTermsManager />
+            </div>
+          ) : null}
+
+          {activePanel === "embeds" ? (
+            <div className="dashboard-tab-grid single">
+              <EmbedMappingsManager />
+            </div>
+          ) : null}
+
+          {activePanel === "admin" ? (
+            <div className="dashboard-tab-grid">
+              <UsageOverview totalCalls={totalCalls} success={success} failures={failures} onNavigate={onNavigate} />
+              <QuickLinks onNavigate={onNavigate} />
+            </div>
+          ) : null}
+        </section>
+        </>
       ) : null}
     </PageWrapper>
   );
